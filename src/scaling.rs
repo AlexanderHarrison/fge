@@ -3,6 +3,8 @@ use bevy::input::mouse::{MouseWheel, MouseMotion};
 use bevy::render::camera::{Camera, OrthographicProjection};
 use bevy::window::WindowResized;
 
+use crate::axis_text::{recalculate_mid_axis_info, MidAxisInfo};
+
 /// Only renders functions within these xbounds.
 /// May have y bounds in the future.
 #[derive(Clone, Debug)]
@@ -37,8 +39,9 @@ pub const ZOOM_FACTOR: f32 = 1.1;
 
 pub fn recalculate_graphing_bounds_system(
     view: Res<GraphingView>,
-    mut graphing_bounds: ResMut<GraphingBounds>,
     window_descriptor: Res<WindowDescriptor>,
+    mut graphing_bounds: ResMut<GraphingBounds>,
+    mut mid_axis_info: ResMut<MidAxisInfo>,
 ) {
     if view.is_changed() || window_descriptor.is_changed() {
         let visible_xbounds = view.visible_xbounds(&window_descriptor);
@@ -53,11 +56,10 @@ pub fn recalculate_graphing_bounds_system(
             || visible_ybounds.end > graphing_bounds.ybounds.end
             || (visible_ybounds.end - visible_ybounds.start) * PREGENERATE_DISTANCE_FACTOR 
                 < graphing_bounds.ybounds.end - graphing_bounds.ybounds.start;
-            //|| visible_ybounds.start < graphing_bounds.ybounds.start
-            //|| visible_ybounds.end > graphing_bounds.ybounds.end;
 
         if should_recalculate {
             *graphing_bounds = recalculate_graphing_bounds(&view, &window_descriptor);
+            *mid_axis_info = recalculate_mid_axis_info(&graphing_bounds, &view);
         }
     }
 }
@@ -96,7 +98,7 @@ pub fn pan_system(
     }
 }
 
-/// Bevy doesn't update WindowDescriptor on window resize for some reason
+/// B: rouevy doesn't update WindowDescriptor on window resize for some reason
 pub fn window_resize(
     mut resize_event: EventReader<WindowResized>,
     mut window: ResMut<WindowDescriptor>
@@ -156,7 +158,7 @@ pub fn recalculate_graphing_bounds(view: &GraphingView, window: &WindowDescripto
 }
 
 impl Bounds {
-    fn centre(&self) -> f32 {
+    pub fn centre(&self) -> f32 {
         (self.start + self.end) / 2.0
     }
 }
@@ -177,14 +179,14 @@ impl Into<std::ops::Range<f32>> for Bounds {
 }
 
 impl GraphingView {
-    fn visible_xbounds(&self, _window: &WindowDescriptor) -> Bounds {
+    pub fn visible_xbounds(&self, _window: &WindowDescriptor) -> Bounds {
         Bounds {
             start: self.centre.x - self.scale,
             end: self.centre.x + self.scale,
         }
     }
 
-    fn visible_ybounds(&self, window: &WindowDescriptor) -> Bounds {
+    pub fn visible_ybounds(&self, window: &WindowDescriptor) -> Bounds {
         let dy = self.scale * window.height / window.width;
         Bounds {
             start: self.centre.y - dy,
